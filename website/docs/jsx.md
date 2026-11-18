@@ -112,6 +112,11 @@ Designer.
 Missing or invalid weights default to `1`, so pass one weight per column when the exact ratio
 matters. Earlier beta builds used `widths`; use `columnWeights` going forward.
 
+`Text` and `MultiVariableText` take `squeezeToFit` to keep each line on one line and narrow it
+horizontally when it's wider than the box, rather than wrapping it or shrinking the font:
+`<Text width={57} squeezeToFit>{itemName}</Text>`. Combine it with
+`dynamicFontSize={{ min, max, fit: 'horizontal' }}` to shrink a little first and squeeze the rest.
+
 ## JSX Playground Beta
 
 The playground accepts a function body, not a full module:

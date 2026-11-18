@@ -410,7 +410,7 @@ export const calculateDynamicFontSize = ({
         value,
         (text) =>
           text.length === 0 ? 0 : widthOfTextAtSize(text, fontKitFont, size, characterSpacing),
-        boxWidthInPt,
+        getWrapWidthInPt(textSchema, boxWidthInPt),
       );
 
       lines.forEach((line, lineIndex) => {
@@ -442,6 +442,26 @@ const measureTextWidth = (
   fontSize: number,
   characterSpacing: number,
 ) => (text.length === 0 ? 0 : widthOfTextAtSize(text, fontKitFont, fontSize, characterSpacing));
+
+/**
+ * The width plain text wraps at. With `squeezeToFit`, lines only break at newlines: a line wider
+ * than the box is narrowed instead (see `getSqueezeRatio`).
+ */
+export const getWrapWidthInPt = (
+  schema: Pick<TextSchema, 'squeezeToFit'>,
+  boxWidthInPt: number,
+): number => (schema.squeezeToFit ? Number.POSITIVE_INFINITY : boxWidthInPt);
+
+/**
+ * The horizontal scale that makes a line of `textWidth` fit `boxWidth` under `squeezeToFit`:
+ * below 1 only for a line wider than the box, otherwise 1.
+ */
+export const getSqueezeRatio = (
+  schema: Pick<TextSchema, 'squeezeToFit'>,
+  textWidth: number,
+  boxWidth: number,
+): number =>
+  schema.squeezeToFit && textWidth > boxWidth && boxWidth > 0 ? boxWidth / textWidth : 1;
 
 export const wrapTextToSize = (arg: {
   value: string;

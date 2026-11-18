@@ -399,6 +399,27 @@ describe('@pdfme/jsx renderToTemplate', () => {
     );
   });
 
+  it('passes squeezeToFit through, measuring squeezed Text as one line', async () => {
+    const singleLine = await renderToTemplate(
+      <Page margin={0}>
+        <Text width={60}>Short text</Text>
+      </Page>,
+    );
+    const squeezed = await renderToTemplate(
+      <Page margin={0}>
+        <Text width={20} squeezeToFit>
+          This text would wrap into several lines.
+        </Text>
+        <MultiVariableText width={20} text="{a}" values={{ a: 'x' }} squeezeToFit />
+      </Page>,
+    );
+    const [text, multiVariableText] = squeezed.template.schemas[0] ?? [];
+
+    expect(text).toMatchObject({ squeezeToFit: true });
+    expect(text?.height).toBeCloseTo(singleLine.template.schemas[0]?.[0]?.height ?? 0, 5);
+    expect(multiVariableText).toMatchObject({ squeezeToFit: true });
+  });
+
   it('advances Stack children by auto-measured Text height', async () => {
     const result = await renderToTemplate(
       <Page margin={0}>
