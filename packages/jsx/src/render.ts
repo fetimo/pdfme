@@ -856,6 +856,7 @@ const renderText = async (
       fit: props.dynamicFontSize.fit ?? DEFAULT_DYNAMIC_FONT_SIZE.fit,
     };
   }
+  if (props.squeezeToFit) schema.squeezeToFit = true;
   if (props.height == null) {
     schema.height = await measureTextHeight({ value, schema, font: ctx.font, _cache: ctx._cache });
   }
@@ -921,6 +922,7 @@ const renderMultiVariableText = async (
       fit: props.dynamicFontSize.fit ?? DEFAULT_DYNAMIC_FONT_SIZE.fit,
     };
   }
+  if (props.squeezeToFit) schema.squeezeToFit = true;
   if (props.height == null) {
     const measureValue = readOnly
       ? content

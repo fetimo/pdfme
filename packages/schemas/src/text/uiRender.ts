@@ -29,6 +29,8 @@ import {
   calculateDynamicFontSize,
   getFontKitFont,
   getBrowserVerticalFontAdjustments,
+  getSqueezeRatio,
+  getWrapWidthInPt,
   isFirefox,
   splitTextToSize,
   wrapTextToSize,
@@ -175,7 +177,7 @@ export const uiRender = async (arg: UIRenderProps<TextSchema>) => {
           characterSpacing: schema.characterSpacing ?? DEFAULT_CHARACTER_SPACING,
           fontSize: dynamicRichTextFontSize ?? resolvedPlainFontSize,
           fontKitFont,
-          boxWidthInPt: mm2pt(getBoxContentArea(schema).width),
+          boxWidthInPt: getWrapWidthInPt(schema, mm2pt(getBoxContentArea(schema).width)),
         }),
         getTextLineRange(schema),
       ),
@@ -184,6 +186,7 @@ export const uiRender = async (arg: UIRenderProps<TextSchema>) => {
       characterSpacing: schema.characterSpacing ?? DEFAULT_CHARACTER_SPACING,
       alignment: schema.alignment ?? DEFAULT_ALIGNMENT,
       boxWidthInPt: mm2pt(getBoxContentArea(schema).width),
+      squeezeToFit: Boolean(schema.squeezeToFit),
     });
     return;
   }
@@ -225,6 +228,22 @@ export const uiRender = async (arg: UIRenderProps<TextSchema>) => {
         })();
       }, 0);
     });
+  }
+
+  if (schema.squeezeToFit && !hasInlineMarkdownFormat) {
+    const baseWidth = textBlock.style.width;
+    const squeezeEditableText = () =>
+      applyEditableSqueeze({
+        textBlock,
+        text: getText(textBlock),
+        schema,
+        fontKitFont,
+        fontSize: parseFloat(textBlock.style.fontSize) || resolvedPlainFontSize,
+        baseWidth,
+      });
+    squeezeEditableText();
+    // Registered after the dynamic font size handler, so it squeezes at the new size.
+    textBlock.addEventListener('keyup', () => setTimeout(squeezeEditableText, 0));
   }
 
   if (usePlaceholder) {
@@ -406,9 +425,18 @@ const renderReadOnlyPlainLines = (arg: {
   characterSpacing: number;
   alignment: string;
   boxWidthInPt: number;
+  squeezeToFit: boolean;
 }) => {
-  const { textBlock, lines, fontKitFont, fontSize, characterSpacing, alignment, boxWidthInPt } =
-    arg;
+  const {
+    textBlock,
+    lines,
+    fontKitFont,
+    fontSize,
+    characterSpacing,
+    alignment,
+    boxWidthInPt,
+    squeezeToFit,
+  } = arg;
   textBlock.innerHTML = '';
 
   lines.forEach((line, lineIndex) => {
@@ -417,7 +445,16 @@ const renderReadOnlyPlainLines = (arg: {
     lineEl.style.whiteSpace = 'pre';
     const displayText = replaceUnsupportedChars(line.text, fontKitFont);
 
-    const textWidth = widthOfTextAtSize(line.text, fontKitFont, fontSize, characterSpacing);
+    const naturalWidth = widthOfTextAtSize(line.text, fontKitFont, fontSize, characterSpacing);
+    const squeeze = getSqueezeRatio({ squeezeToFit }, naturalWidth, boxWidthInPt);
+    const textWidth = naturalWidth * squeeze;
+    if (squeeze < 1) {
+      // A squeezed line fills the box, so it starts at the left edge whatever the alignment
+      // (CSS start-aligns a line too long for its box).
+      lineEl.style.display = 'inline-block';
+      lineEl.style.transform = `scaleX(${squeeze})`;
+      lineEl.style.transformOrigin = 'left';
+    }
     const stripTrailingLetterSpacing = applySharedWrapLineSpacing(
       lineEl,
       { text: line.text, width: textWidth, hardBreak: line.hardBreak },
@@ -465,11 +502,44 @@ const getRangedPlainTextValue = (arg: {
       characterSpacing: schema.characterSpacing ?? DEFAULT_CHARACTER_SPACING,
       fontSize,
       fontKitFont,
-      boxWidthInPt: mm2pt(getBoxContentArea(schema).width),
+      boxWidthInPt: getWrapWidthInPt(schema, mm2pt(getBoxContentArea(schema).width)),
     }),
     lineRange,
   );
   return plainTextLinesToValue(lines);
+};
+
+/**
+ * `squeezeToFit` while editing: an editable field can't scale its lines one by one, so the whole
+ * block is narrowed by its widest line. Read-only rendering and the PDF squeeze each line.
+ */
+const applyEditableSqueeze = (arg: {
+  textBlock: HTMLDivElement;
+  text: string;
+  schema: TextSchema;
+  fontKitFont: FontKitFont;
+  fontSize: number;
+  /** The block's width before any squeeze, restored when the text fits again. */
+  baseWidth: string;
+}) => {
+  const { textBlock, text, schema, fontKitFont, fontSize, baseWidth } = arg;
+  const characterSpacing = schema.characterSpacing ?? DEFAULT_CHARACTER_SPACING;
+  const widest = Math.max(
+    0,
+    ...text
+      .split('\n')
+      .map((line) => widthOfTextAtSize(line, fontKitFont, fontSize, characterSpacing)),
+  );
+  const squeeze = getSqueezeRatio(schema, widest, mm2pt(getBoxContentArea(schema).width));
+  if (squeeze < 1) {
+    textBlock.style.width = `${100 / squeeze}%`;
+    textBlock.style.transform = `scaleX(${squeeze})`;
+    textBlock.style.transformOrigin = 'left top';
+  } else {
+    textBlock.style.removeProperty('transform');
+    textBlock.style.removeProperty('transform-origin');
+    textBlock.style.width = baseWidth;
+  }
 };
 
 export const buildStyledTextContainer = (
@@ -562,7 +632,11 @@ export const buildStyledTextContainer = (
     // Read-only Viewer paints wrap-engine lines with `pre`. CSS justify would
     // fight the PDF grapheme-count letter-spacing applied per soft line.
     textAlign: useComputedWrapLines && alignment === ALIGN_JUSTIFY ? 'left' : alignment,
-    whiteSpace: useComputedWrapLines ? 'pre' : 'pre-wrap',
+    // squeezeToFit lines never wrap; a line too wide is narrowed instead.
+    whiteSpace:
+      useComputedWrapLines || (schema.squeezeToFit && !isInlineMarkdownTextSchema(schema))
+        ? 'pre'
+        : 'pre-wrap',
     wordBreak: useComputedWrapLines ? 'normal' : 'break-word',
     // Block layout styles
     resize: 'none',

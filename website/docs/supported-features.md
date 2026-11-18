@@ -54,6 +54,11 @@ Exceptions:
   - Support for multiple fonts and fallback fonts
   - Dynamic Font Sizing
     - Detailed options for Min, Max, Fit
+  - Squeeze to fit (`squeezeToFit: true`): lines don't wrap, and a line wider than the box is
+    narrowed horizontally until it fits, keeping its font size and height. Lines still break at
+    newlines. With Dynamic Font Sizing, the font shrinks first and anything still too wide is
+    squeezed. Plain text only (ignored for Inline Markdown), and set in the template or JSX; the
+    Designer has no control for it yet.
 - Overflow
   - Visible: keeps the schema's authored height and allows overflowing text to remain visible
   - Expand: measures the rendered text, grows the schema height, pushes following schemas down, and splits long text across pages when blank `basePdf` is used

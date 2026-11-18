@@ -5,6 +5,7 @@ import {
   calculateDynamicFontSize,
   getFontKitFont,
   getLineBoxHeightPt,
+  getWrapWidthInPt,
   splitTextToSize,
 } from './helper.js';
 import { parseInlineMarkdown } from './inlineMarkdown.js';
@@ -112,7 +113,7 @@ export const measureTextLines = async ({
     characterSpacing,
     fontSize: resolvedFontSize,
     fontKitFont,
-    boxWidthInPt,
+    boxWidthInPt: getWrapWidthInPt(schema, boxWidthInPt),
   });
 
   return {

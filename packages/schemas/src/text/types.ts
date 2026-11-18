@@ -49,6 +49,12 @@ export type TextSchema = Schema & {
     max: number;
     fit: DYNAMIC_FONT_SIZE_FIT;
   };
+  /**
+   * Keep each line on one line and narrow any line wider than the box until it fits, keeping the
+   * font size (horizontal scaling, like CSS `scaleX`). Lines only break at newlines. Applied after
+   * `dynamicFontSize`. Plain text only: ignored with `textFormat: 'inline-markdown'`.
+   */
+  squeezeToFit?: boolean;
   overflow?: TEXT_OVERFLOW;
   fontColor: string;
   backgroundColor: string;

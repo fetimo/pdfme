@@ -23,6 +23,8 @@ import {
   heightOfFontAtSize,
   getFontDescentInPt,
   getFontKitFont,
+  getSqueezeRatio,
+  getWrapWidthInPt,
   widthOfTextAtSize,
   wrapTextToSize,
 } from './helper.js';
@@ -187,11 +189,13 @@ export const pdfRender = async (arg: PDFRenderProps<TextSchema>) => {
       characterSpacing,
       fontSize,
       fontKitFont,
-      boxWidthInPt: contentWidth,
+      boxWidthInPt: getWrapWidthInPt(schema, contentWidth),
     }),
     getTextLineRange(schema),
   );
-  const needsTextWidth = alignment !== 'left' || Boolean(schema.strikethrough || schema.underline);
+  const needsTextWidth =
+    alignment !== 'left' ||
+    Boolean(schema.strikethrough || schema.underline || schema.squeezeToFit);
   const needsTextHeight = Boolean(schema.strikethrough || schema.underline);
 
   // Text lines are rendered from the bottom upwards, we need to adjust the position down
@@ -212,9 +216,12 @@ export const pdfRender = async (arg: PDFRenderProps<TextSchema>) => {
 
   lines.forEach((line, rowIndex) => {
     const trimmed = line.text;
-    const textWidth = needsTextWidth
+    const naturalWidth = needsTextWidth
       ? widthOfTextAtSize(trimmed, fontKitFont, fontSize, characterSpacing)
       : 0;
+    // Horizontal scaling (PDF `Tz`) narrows glyphs and character spacing alike.
+    const squeeze = getSqueezeRatio(schema, naturalWidth, contentWidth);
+    const textWidth = naturalWidth * squeeze;
     const textHeight = needsTextHeight ? heightOfFontAtSize(fontKitFont, fontSize) : 0;
     const rowYOffset = lineHeight * fontSize * rowIndex;
     const alignmentMetrics = getLineAlignment(
@@ -266,6 +273,7 @@ export const pdfRender = async (arg: PDFRenderProps<TextSchema>) => {
     page.pushOperators(
       pdfLib.setCharacterSpacing(characterSpacing + alignmentMetrics.extraLetterSpacing),
     );
+    if (squeeze < 1) page.pushOperators(pdfLib.setCharacterSqueeze(squeeze * 100));
 
     page.drawText(drawText, {
       x: xLine,
@@ -277,6 +285,9 @@ export const pdfRender = async (arg: PDFRenderProps<TextSchema>) => {
       font: pdfFontValue,
       opacity: textOpacity,
     });
+
+    // Horizontal scaling stays in the text state, so reset it for whatever is drawn next.
+    if (squeeze < 1) page.pushOperators(pdfLib.setCharacterSqueeze(100));
   });
 };
 

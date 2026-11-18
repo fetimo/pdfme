@@ -179,6 +179,7 @@ type TextSchemaProps = Partial<
     | 'required'
     | 'textFormat'
     | 'overflow'
+    | 'squeezeToFit'
   >
 >;
 
@@ -213,6 +214,7 @@ type MultiVariableTextSchemaProps = Partial<
     | 'required'
     | 'textFormat'
     | 'overflow'
+    | 'squeezeToFit'
   >
 >;
 
